@@ -22,7 +22,17 @@ public class Player : MonoBehaviour {
         Rotate();
 	}
 
-    private void Rotate()
+    void OnCollisionEnter(Collision collision) {
+        if (collision.gameObject.tag == "Friendly"){
+            print("fine");
+        }
+        else
+        {
+            print("dead");
+        }
+    }
+
+        private void Rotate()
     {
         rigidbody.freezeRotation = true; //take manual control of rotation
 
