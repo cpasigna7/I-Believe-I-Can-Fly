@@ -4,6 +4,7 @@ using UnityEngine.SceneManagement;
 public class Player : MonoBehaviour {
     [SerializeField] float rcsthrust = 100f;
     [SerializeField] float mainthrust = 100f;
+    [SerializeField] float levelloaddelay = 2f;
 
     [SerializeField] AudioClip mainengine;
     [SerializeField] AudioClip crash;
@@ -16,8 +17,8 @@ public class Player : MonoBehaviour {
     Rigidbody rigidbody;
     AudioSource JetPackAudio;
 
-    enum State { alive, dying, transcending }
-    State state = State.alive;
+    bool CurrentlyLoading = false;
+    bool CollisionsDisabled = false;
 
     // Use this for initialization
     void Start () {
@@ -27,35 +28,54 @@ public class Player : MonoBehaviour {
 
     // Update is called once per frame
     void Update() {
-        if (state == State.alive) {
+        if (CurrentlyLoading == false) {
             RespondToThrustInput();
             RespondToRotateInput();
+        }
+        if (Debug.isDebugBuild) {
+            RespondtoDebugKeys();
+        }
+    }
+
+    private void RespondtoDebugKeys() {
+        if (Input.GetKeyDown(KeyCode.L)) {
+            LoadNextLevel();
+        }
+        if(Input.GetKeyDown(KeyCode.C)) { //toggle collisions
+            CollisionsDisabled = !CollisionsDisabled;
         }
     }
 
     void OnCollisionEnter(Collision collision) {
-        if(state != State.alive) return;
-        if (collision.gameObject.tag == "Friendly") { //player should not dieS
+        if(CurrentlyLoading == true || CollisionsDisabled == true) return;
+        if (collision.gameObject.tag == "Friendly") { //player should not die
             print("fine");
         }
         else if (collision.gameObject.tag == "Finish") { //player reaches finish
+            CurrentlyLoading = true;
             victoryparticles.Play();
-            state = State.transcending;
             JetPackAudio.Stop();
             JetPackAudio.PlayOneShot(victory);
-            Invoke("LoadNextLevel", 1f);
+            Invoke("LoadNextLevel", levelloaddelay);
         }
         else { //player crashes
+            CurrentlyLoading = true;
             crashparticles.Play();
-            state = State.dying;
             JetPackAudio.Stop(); 
             JetPackAudio.PlayOneShot(crash);
-            Invoke("Reset", 1f);
+            Invoke("Reset", levelloaddelay);
         }
     }
 
-    private void LoadNextLevel(){
-        SceneManager.LoadScene(1);
+    private void LoadNextLevel() {
+        int totallevels = SceneManager.sceneCountInBuildSettings;
+        int currentlevel = SceneManager.GetActiveScene().buildIndex;
+        if (currentlevel == totallevels-1) { //loop back to level 1
+            Reset();
+        }
+        else {
+            SceneManager.LoadScene(currentlevel + 1);
+        }
     }
 
     private void Reset() {
@@ -63,8 +83,7 @@ public class Player : MonoBehaviour {
     }
 
     private void RespondToRotateInput() {
-        rigidbody.freezeRotation = true; //take manual control of rotation
-
+        rigidbody.angularVelocity = Vector3.zero; //remove rotation due to physics
         float rotationspeed = rcsthrust * Time.deltaTime;
         if (Input.GetKey(KeyCode.A))
         {
@@ -74,8 +93,6 @@ public class Player : MonoBehaviour {
         {
             transform.Rotate(-Vector3.forward * rotationspeed);
         }
-
-        rigidbody.freezeRotation = false; //resume physics control of rotation
     }
 
     private void RespondToThrustInput() {
